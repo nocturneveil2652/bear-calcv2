@@ -9,33 +9,35 @@ let currentKey = "ruby";
 let cur = {I:0, L:0, A:0};
 
 async function it() {
-    // 1. セレクトボックス初期化
+    // セレクトボックス初期化
     const fcs = ["なし","1","2","3","4","5","6","7","8","9","10"];
     const tiers = ["T7","T8","T9","T10","T11"];
     document.querySelectorAll('[id^="fc"]').forEach(s => { fcs.forEach(f => s.add(new Option("FC "+f,f))); });
     document.querySelectorAll('select[id^="t"]').forEach(s => { tiers.forEach(t => s.add(new Option(t,t))); });
     
-    // 2. 暫定表示
+    // 最初はデフォルトで表示
     applyMemberSettings();
 
-    // 3. スプシ取得（成功したら上書きして再計算）
+    // スプシから数値を取得
     try {
         const response = await fetch(SPREADSHEET_API_URL);
         const data = await response.json();
         if(data.ruby) memberData.ruby.tr = data.ruby;
         if(data.junk) memberData.junk.tr = data.junk;
         
-        // 今のメンバーの数値を更新
+        // 届いたら今の画面に反映
         document.getElementById('tr').value = memberData[currentKey].tr;
         sy(); 
     } catch (e) {
-        console.error("スプシ反映失敗:", e);
+        console.error("スプシ取得失敗:", e);
     }
 }
 
 function applyMemberSettings() {
     const config = memberData[currentKey];
-    document.getElementById('tr').value = config.tr;
+    const trInput = document.getElementById('tr');
+    if(trInput) trInput.value = config.tr;
+    
     document.querySelectorAll('[id^="fc"]').forEach(s => s.value = config.fc);
     document.querySelectorAll('select[id^="t"]').forEach(s => s.value = config.t);
     sy(); 
@@ -52,30 +54,31 @@ function sy() {
     const trElem = document.getElementById('tr');
     if(!trElem) return;
     const tot = parseInt(trElem.value) || 0;
-    document.getElementById('tDisp').innerText = tot.toLocaleString();
     
-    let sumP = 0;
+    const tDisp = document.getElementById('tDisp');
+    if(tDisp) tDisp.innerText = tot.toLocaleString();
+    
     ['I','L','A'].forEach(t => { 
-        const pct = parseFloat(document.getElementById('i'+t).value) || 0;
+        const inputElem = document.getElementById('i'+t);
+        const pct = inputElem ? (parseFloat(inputElem.value) || 0) : 0;
         cur[t] = Math.floor(tot * (pct / 100));
-        sumP += pct;
+        
         const sElem = document.getElementById('s'+t);
         if(sElem) sElem.innerText = `→ ${cur[t].toLocaleString()}`;
     });
     
-    const rem = document.getElementById('remDisp');
-    if(rem) rem.innerText = `残り：${Math.round(100 - sumP)}%`;
-    
-    calc();
+    calc(); // ここで計算を呼び出す
 }
 
-function hi(t) {
-    sy(); // 割合入力時は再計算へ
-}
+function hi(t) { sy(); }
 
 function calc() {
+    // D(兵士データ)が読み込まれていないなら中止
     if (typeof D === 'undefined') return;
     
+    const resDmgElem = document.getElementById('resDmg');
+    if(!resDmgElem) return;
+
     const process = (row, key, atkId, kilId) => {
         const fc = document.getElementById('fc'+row).value;
         const t = document.getElementById('t'+row).value;
@@ -87,23 +90,33 @@ function calc() {
         return {dmg: Math.sqrt(cur[row.toUpperCase()]) * coeff, m: coeff};
     };
 
-    const rI = process('i','盾','bAi','bKi');
-    const rL = process('l','槍','bAl','bKl');
-    const rA = process('a','弓','bAa','bKa');
-    
-    document.getElementById('resDmg').innerText = Math.floor(rI.dmg + rL.dmg + rA.dmg).toLocaleString();
+    try {
+        const rI = process('i','盾','bAi','bKi');
+        const rL = process('l','槍','bAl','bKl');
+        const rA = process('a','弓','bAa','bKa');
+        
+        const totalDmg = Math.floor(rI.dmg + rL.dmg + rA.dmg);
+        resDmgElem.innerText = totalDmg.toLocaleString();
 
-    const sQ = rI.m**2 + rL.m**2 + rA.m**2;
-    if(sQ > 0) {
-        const pI = Math.round(rI.m**2/sQ*100), pL = Math.round(rL.m**2/sQ*100), pA = 100 - pI - pL;
-        document.getElementById('bT').innerText = `推奨: 盾${pI}% 槍${pL}% 弓${pA}%`;
+        const sQ = rI.m**2 + rL.m**2 + rA.m**2;
+        const bT = document.getElementById('bT');
+        if(sQ > 0 && bT) {
+            const pI = Math.round(rI.m**2/sQ*100), pL = Math.round(rL.m**2/sQ*100), pA = 100 - pI - pL;
+            bT.innerText = `推奨: 盾${pI}% 槍${pL}% 弓${pA}%`;
+        }
+    } catch(e) {
+        console.error("計算中にエラー:", e);
     }
 }
 
 function rs() {
-    ['bAi','bKi','bAl','bKl','bAa','bKa'].forEach(id => document.getElementById(id).value="0.0");
+    ['bAi','bKi','bAl','bKl','bAa','bKa'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.value="0.0";
+    });
     document.getElementById('iI').value=33; document.getElementById('iL').value=33; document.getElementById('iA').value=34;
     applyMemberSettings();
 }
 
-it(); // 実行
+// 実行開始
+it();
