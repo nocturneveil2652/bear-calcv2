@@ -1,14 +1,9 @@
-// --- 1. 設定項目 ---
 const SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbwWEDwwO4vSFzdOkMY6NEbqIrd-DEREvKgUg5YZTFWPODvlVHsPChv5UtlMbM9u_mCD/exec";
-let memberData = { ruby: 100000, junk: 100000 }; // スプシ読み込み失敗時の予備
-let currentMemberKey = "ruby"; // 現在選択されているキー (ruby か junk)
-
-// 計算用変数
+let memberData = { ruby: 100000, junk: 100000 };
+let currentMemberKey = "ruby";
 let isP = {I:1,L:1,A:1}, cur = {I:33000,L:33000,A:34000};
 
-// --- 2. 初期化 ---
 async function it() {
-    // セレクトボックスの生成 (Tier, FC)
     const fcs = ["なし","1","2","3","4","5","6","7","8","9","10"];
     const tiers = ["T7","T8","T9","T10","T11"];
     document.querySelectorAll('[id^="fc"]').forEach(s => { fcs.forEach(f => s.add(new Option("FC "+f,f))); });
@@ -16,42 +11,26 @@ async function it() {
     
     setDefault("4", "T10");
 
-    // スプレッドシートからデータを取得
     try {
         const response = await fetch(SPREADSHEET_API_URL);
         const data = await response.json();
         memberData.ruby = data.ruby;
         memberData.junk = data.junk;
-        
-        // 最初の数値をセット
         document.getElementById('tr').value = memberData[currentMemberKey];
     } catch (e) {
-        console.error("スプシ読み込み失敗:", e);
+        console.error("スプシ接続エラー:", e);
     }
-    
     sy();
 }
 
-// --- 3. エディション切り替え ---
 function toggleEdition() {
-    const b = document.body;
-    const label = document.getElementById('editionLabel');
-    const inputTr = document.getElementById('tr');
-    
-    // キーを切り替え
     currentMemberKey = (currentMemberKey === "ruby") ? "junk" : "ruby";
-    
-    // 見た目の変更
-    b.classList.toggle('junk-theme', currentMemberKey === "junk");
-    label.innerText = (currentMemberKey === "ruby" ? "るびぃ" : "じゃんく") + "edition";
-    
-    // スプシから取得済みの数値を反映
-    inputTr.value = memberData[currentMemberKey];
-    
+    document.body.classList.toggle('junk-theme', currentMemberKey === "junk");
+    document.getElementById('editionLabel').innerText = (currentMemberKey === "ruby" ? "るびぃ" : "じゃんく") + "edition";
+    document.getElementById('tr').value = memberData[currentMemberKey];
     sy();
 }
 
-// --- 4. 共通処理 (以前のものと共通) ---
 function sy() {
     const tot = parseInt(document.getElementById('tr').value);
     document.getElementById('tDisp').innerText = tot.toLocaleString();
@@ -60,28 +39,24 @@ function sy() {
         if(isP[t]) cur[t] = Math.floor(tot*(parseFloat(document.getElementById('i'+t).value)||0)/100);
         sumP += Math.round(cur[t]/tot*100);
     });
-    document.getElementById('remDisp').innerText = `残り：${100 - sumP}%`;
+    const remDisp = document.getElementById('remDisp');
+    if(remDisp) remDisp.innerText = `残り：${100 - sumP}%`;
+    
     ['I','L','A'].forEach(t => { 
-        document.getElementById('s'+t).innerText = `→ ${cur[t].toLocaleString()}`; 
+        const sElem = document.getElementById('s'+t);
+        if(sElem) sElem.innerText = `→ ${cur[t].toLocaleString()}`; 
     });
     calc();
 }
 
-function tg(t) {
-    isP[t] = !isP[t];
-    const b = document.getElementById('m'+t), tot = parseInt(document.getElementById('tr').value);
-    b.innerText = isP[t]?"割合":"人数"; b.classList.toggle('active', isP[t]);
-    document.getElementById('i'+t).value = isP[t]?Math.round(cur[t]/tot*100):cur[t];
+function hi(t) {
+    const tot = parseInt(document.getElementById('tr').value);
+    const v = parseFloat(document.getElementById('i'+t).value)||0;
+    cur[t] = Math.floor(tot*(v/100));
     sy();
 }
 
-function hi(t) {
-    const tot = parseInt(document.getElementById('tr').value), v = parseFloat(document.getElementById('i'+t).value)||0;
-    cur[t] = isP[t]?Math.floor(tot*(v/100)):v; sy();
-}
-
 function calc() {
-    const tot = parseInt(document.getElementById('tr').value);
     const process = (row, key, atkId, kilId) => {
         const fc = document.getElementById('fc'+row).value, t = document.getElementById('t'+row).value,
               b = (D[key][fc] && D[key][fc][t]) ? D[key][fc][t] : D[key]["なし"][t],
@@ -111,5 +86,4 @@ function setDefault(f, t) {
     document.querySelectorAll('select[id^="t"]').forEach(s => s.value = t);
 }
 
-// 読み込み開始
 it();
