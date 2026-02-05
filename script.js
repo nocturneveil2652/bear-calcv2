@@ -5,7 +5,7 @@
 
 // --- 1. 設定項目 ---
 // ⚠️ あなたがデプロイした「新しいGASのウェブアプリURL」に貼り替えてください
-const SPREADSHEET_API_URL = "https://script.google.com/macros/s/XXXXX/exec";
+const SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbwWEDwwO4vSFzdOkMY6NEbqIrd-DEREvKgUg5YZTFWPODvlVHsPChv5UtlMbM9u_mCD/exec";
 
 // スプシから取得したデータを保持する変数（初期値は予備）
 let memberData = { "るびぃ": 100000, "じゃんく": 100000 };
@@ -86,3 +86,4 @@ function calc() {
 
 // その他の補助関数（setDefault, cl, re, vM, st, rs など）も以前と同じものを下に続けます
 window.onload = it;
+
