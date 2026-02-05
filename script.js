@@ -119,4 +119,8 @@ function rs() {
 }
 
 // 実行開始
-it();
+// 一番下の it(); をこれに書き換える
+window.addEventListener('DOMContentLoaded', () => {
+    it();
+});
+
