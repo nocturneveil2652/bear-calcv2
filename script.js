@@ -1,35 +1,35 @@
 const SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbwWEDwwO4vSFzdOkMY6NEbqIrd-DEREvKgUg5YZTFWPODvlVHsPChv5UtlMbM9u_mCD/exec";
 
-// メンバーごとの設定（ティアとFCのデフォルトをここで指定）
+// メンバーごとのデフォルト設定
 let memberData = {
     ruby: { tr: 100000, fc: "4", t: "T10" },
     junk: { tr: 100000, fc: "5", t: "T10" }
 };
 let currentKey = "ruby"; 
-let isP = {I:1,L:1,A:1}, cur = {I:33000,L:33000,A:34000};
+let cur = {I:0, L:0, A:0};
 
 async function it() {
-    // 1. セレクトボックスの作成
+    // 1. セレクトボックス初期化
     const fcs = ["なし","1","2","3","4","5","6","7","8","9","10"];
     const tiers = ["T7","T8","T9","T10","T11"];
     document.querySelectorAll('[id^="fc"]').forEach(s => { fcs.forEach(f => s.add(new Option("FC "+f,f))); });
     document.querySelectorAll('select[id^="t"]').forEach(s => { tiers.forEach(t => s.add(new Option(t,t))); });
     
-    // 2. 画面を初期設定にする
+    // 2. 暫定表示
     applyMemberSettings();
 
-    // 3. スプシから数値を取得して反映
+    // 3. スプシ取得（成功したら上書きして再計算）
     try {
         const response = await fetch(SPREADSHEET_API_URL);
         const data = await response.json();
         if(data.ruby) memberData.ruby.tr = data.ruby;
         if(data.junk) memberData.junk.tr = data.junk;
         
-        // 届いた数値を現在の画面に反映
+        // 今のメンバーの数値を更新
         document.getElementById('tr').value = memberData[currentKey].tr;
-        sy(); // 届いた瞬間に再計算
+        sy(); 
     } catch (e) {
-        console.error("スプシ取得失敗:", e);
+        console.error("スプシ反映失敗:", e);
     }
 }
 
@@ -49,40 +49,33 @@ function toggleEdition() {
 }
 
 function sy() {
-    const trInput = document.getElementById('tr');
-    if(!trInput) return;
-    const tot = parseInt(trInput.value) || 0;
+    const trElem = document.getElementById('tr');
+    if(!trElem) return;
+    const tot = parseInt(trElem.value) || 0;
     document.getElementById('tDisp').innerText = tot.toLocaleString();
     
     let sumP = 0;
     ['I','L','A'].forEach(t => { 
-        const inputElem = document.getElementById('i'+t);
-        if(isP[t]) cur[t] = Math.floor(tot*(parseFloat(inputElem.value)||0)/100);
-        sumP += Math.round(cur[t]/tot*100);
-    });
-    
-    const remDisp = document.getElementById('remDisp');
-    if(remDisp) remDisp.innerText = `残り：${100 - sumP}%`;
-    
-    ['I','L','A'].forEach(t => { 
+        const pct = parseFloat(document.getElementById('i'+t).value) || 0;
+        cur[t] = Math.floor(tot * (pct / 100));
+        sumP += pct;
         const sElem = document.getElementById('s'+t);
-        if(sElem) sElem.innerText = `→ ${cur[t].toLocaleString()}`; 
+        if(sElem) sElem.innerText = `→ ${cur[t].toLocaleString()}`;
     });
+    
+    const rem = document.getElementById('remDisp');
+    if(rem) rem.innerText = `残り：${Math.round(100 - sumP)}%`;
+    
     calc();
 }
 
 function hi(t) {
-    const tot = parseInt(document.getElementById('tr').value) || 0;
-    const v = parseFloat(document.getElementById('i'+t).value)||0;
-    cur[t] = Math.floor(tot*(v/100));
-    sy();
+    sy(); // 割合入力時は再計算へ
 }
 
 function calc() {
     if (typeof D === 'undefined') return;
-    const resDmgElem = document.getElementById('resDmg');
-    if(!resDmgElem) return;
-
+    
     const process = (row, key, atkId, kilId) => {
         const fc = document.getElementById('fc'+row).value;
         const t = document.getElementById('t'+row).value;
@@ -98,7 +91,7 @@ function calc() {
     const rL = process('l','槍','bAl','bKl');
     const rA = process('a','弓','bAa','bKa');
     
-    resDmgElem.innerText = Math.floor(rI.dmg + rL.dmg + rA.dmg).toLocaleString();
+    document.getElementById('resDmg').innerText = Math.floor(rI.dmg + rL.dmg + rA.dmg).toLocaleString();
 
     const sQ = rI.m**2 + rL.m**2 + rA.m**2;
     if(sQ > 0) {
@@ -113,6 +106,4 @@ function rs() {
     applyMemberSettings();
 }
 
-// 最後に初期化を実行
-it();
-
+it(); // 実行
