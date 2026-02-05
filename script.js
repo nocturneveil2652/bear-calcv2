@@ -1,46 +1,35 @@
-/**
- * 熊ダメ計算機 v2.0.0
- * スプレッドシート連携・メンバー個別デフォルト値対応版
- */
-
 // --- 1. 設定項目 ---
-// ⚠️ あなたがデプロイした「新しいGASのウェブアプリURL」に貼り替えてください
 const SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbwWEDwwO4vSFzdOkMY6NEbqIrd-DEREvKgUg5YZTFWPODvlVHsPChv5UtlMbM9u_mCD/exec";
-
-// スプシから取得したデータを保持する変数（初期値は予備）
-let memberData = { "るびぃ": 100000, "じゃんく": 100000 };
-let currentMember = "るびぃ"; 
+let memberData = { ruby: 100000, junk: 100000 }; // スプシ読み込み失敗時の予備
+let currentMemberKey = "ruby"; // 現在選択されているキー (ruby か junk)
 
 // 計算用変数
 let isP = {I:1,L:1,A:1}, cur = {I:33000,L:33000,A:34000};
 
-// --- 2. 初期化処理 ---
+// --- 2. 初期化 ---
 async function it() {
-    // セレクトボックスの生成（FC段階とTier）
+    // セレクトボックスの生成 (Tier, FC)
     const fcs = ["なし","1","2","3","4","5","6","7","8","9","10"];
     const tiers = ["T7","T8","T9","T10","T11"];
     document.querySelectorAll('[id^="fc"]').forEach(s => { fcs.forEach(f => s.add(new Option("FC "+f,f))); });
     document.querySelectorAll('select[id^="t"]').forEach(s => { tiers.forEach(t => s.add(new Option(t,t))); });
     
-    // デフォルト設定
     setDefault("4", "T10");
 
-    // 【重要】スプレッドシートからデータを取得
+    // スプレッドシートからデータを取得
     try {
         const response = await fetch(SPREADSHEET_API_URL);
         const data = await response.json();
-        // data は { "ruby": 100000, "junk": 150000 } のような形式を想定
-        // スプシの名前（るびぃ/じゃんく）に合わせて整理
-        memberData["るびぃ"] = data.ruby;
-        memberData["じゃんく"] = data.junk;
+        memberData.ruby = data.ruby;
+        memberData.junk = data.junk;
         
-        // 起動時のメンバー（るびぃ）の数値をセット
-        document.getElementById('tr').value = memberData[currentMember];
+        // 最初の数値をセット
+        document.getElementById('tr').value = memberData[currentMemberKey];
     } catch (e) {
-        console.error("スプシデータの取得に失敗しました。予備数値を使用します。:", e);
+        console.error("スプシ読み込み失敗:", e);
     }
     
-    sy(); // 画面更新
+    sy();
 }
 
 // --- 3. エディション切り替え ---
@@ -49,22 +38,20 @@ function toggleEdition() {
     const label = document.getElementById('editionLabel');
     const inputTr = document.getElementById('tr');
     
-    // メンバーを交代
-    currentMember = (currentMember === "るびぃ") ? "じゃんく" : "るびぃ";
+    // キーを切り替え
+    currentMemberKey = (currentMemberKey === "ruby") ? "junk" : "ruby";
     
-    // デザイン反映
-    b.classList.toggle('junk-theme', currentMember === "じゃんく");
-    label.innerText = currentMember + "edition";
+    // 見た目の変更
+    b.classList.toggle('junk-theme', currentMemberKey === "junk");
+    label.innerText = (currentMemberKey === "ruby" ? "るびぃ" : "じゃんく") + "edition";
     
-    // 【重要】スプシから取得済みのメンバー別数値を入力欄にセット
-    if (memberData[currentMember]) {
-        inputTr.value = memberData[currentMember];
-    }
+    // スプシから取得済みの数値を反映
+    inputTr.value = memberData[currentMemberKey];
     
-    sy(); // 再計算
+    sy();
 }
 
-// --- 4. 計算・同期ロジック (以前のものを改良) ---
+// --- 4. 共通処理 (以前のものと共通) ---
 function sy() {
     const tot = parseInt(document.getElementById('tr').value);
     document.getElementById('tDisp').innerText = tot.toLocaleString();
@@ -73,17 +60,56 @@ function sy() {
         if(isP[t]) cur[t] = Math.floor(tot*(parseFloat(document.getElementById('i'+t).value)||0)/100);
         sumP += Math.round(cur[t]/tot*100);
     });
+    document.getElementById('remDisp').innerText = `残り：${100 - sumP}%`;
     ['I','L','A'].forEach(t => { 
         document.getElementById('s'+t).innerText = `→ ${cur[t].toLocaleString()}`; 
     });
     calc();
 }
 
-function calc() {
-    // 以前の calc() 関数（ダメージ計算ロジック）をそのままここに貼り付けてください
-    // ※ data.js の D 変数を使って計算する部分です
+function tg(t) {
+    isP[t] = !isP[t];
+    const b = document.getElementById('m'+t), tot = parseInt(document.getElementById('tr').value);
+    b.innerText = isP[t]?"割合":"人数"; b.classList.toggle('active', isP[t]);
+    document.getElementById('i'+t).value = isP[t]?Math.round(cur[t]/tot*100):cur[t];
+    sy();
 }
 
-// その他の補助関数（setDefault, cl, re, vM, st, rs など）も以前と同じものを下に続けます
-window.onload = it;
+function hi(t) {
+    const tot = parseInt(document.getElementById('tr').value), v = parseFloat(document.getElementById('i'+t).value)||0;
+    cur[t] = isP[t]?Math.floor(tot*(v/100)):v; sy();
+}
 
+function calc() {
+    const tot = parseInt(document.getElementById('tr').value);
+    const process = (row, key, atkId, kilId) => {
+        const fc = document.getElementById('fc'+row).value, t = document.getElementById('t'+row).value,
+              b = (D[key][fc] && D[key][fc][t]) ? D[key][fc][t] : D[key]["なし"][t],
+              a = parseFloat(document.getElementById(atkId).value)||0, k = parseFloat(document.getElementById(kilId).value)||0;
+        const base = b[0] * b[1];
+        const coeff = base * (1 + a/100) * (1 + k/100);
+        return {dmg: Math.sqrt(cur[row.toUpperCase()]) * coeff, m: coeff};
+    };
+    const rI = process('i','盾','bAi','bKi'), rL = process('l','槍','bAl','bKl'), rA = process('a','弓','bAa','bKa');
+    document.getElementById('resDmg').innerText = Math.floor(rI.dmg + rL.dmg + rA.dmg).toLocaleString();
+    const sQ = rI.m**2 + rL.m**2 + rA.m**2;
+    if(sQ>0) {
+        const pI = Math.round(rI.m**2/sQ*100), pL = Math.round(rL.m**2/sQ*100), pA = 100 - pI - pL;
+        document.getElementById('bT').innerText = `推奨: 盾${pI}% 槍${pL}% 弓${pA}%`;
+    }
+}
+
+function rs() {
+    ['bAi','bKi','bAl','bKl','bAa','bKa'].forEach(id => document.getElementById(id).value="0.0");
+    document.getElementById('iI').value=33; document.getElementById('iL').value=33; document.getElementById('iA').value=34;
+    document.getElementById('tr').value = memberData[currentMemberKey];
+    sy();
+}
+
+function setDefault(f, t) {
+    document.querySelectorAll('[id^="fc"]').forEach(s => s.value = f);
+    document.querySelectorAll('select[id^="t"]').forEach(s => s.value = t);
+}
+
+// 読み込み開始
+it();
