@@ -3,7 +3,7 @@ const SPREADSHEET_API_URL = "https://script.google.com/macros/s/AKfycbwWEDwwO4vS
 // メンバーごとの設定（ティアとFCのデフォルトをここで指定）
 let memberData = {
     ruby: { tr: 100000, fc: "4", t: "T10" },
-    junk: { tr: 100000, fc: "5", t: "T11" }
+    junk: { tr: 100000, fc: "5", t: "T10" }
 };
 let currentKey = "ruby"; 
 let isP = {I:1,L:1,A:1}, cur = {I:33000,L:33000,A:34000};
@@ -115,3 +115,4 @@ function rs() {
 
 // 最後に初期化を実行
 it();
+
